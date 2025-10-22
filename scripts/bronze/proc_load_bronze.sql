@@ -22,7 +22,7 @@ Usage:
 ================================================================================
 */
 
-CREATE OR REPLACE PROCEDURE bronze.load_bronze()
+CREATE OR REPLACE PROCEDURE bronze.load_bronze(p_base_path_crm TEXT, p_base_path_erp TEXT)
     LANGUAGE plpgsql
 AS
 $$
@@ -33,9 +33,6 @@ DECLARE
     v_rows_affected INTEGER;
     v_duration      NUMERIC;
 
-    -- ⚠️  UPDATE THESE PATHS TO YOUR LOCAL ENVIRONMENT ⚠️
-    v_base_path_crm TEXT := 'C:\Your\Path\SQL-Data-Warehouse-Project\data_sets\source_crm\';
-    v_base_path_erp TEXT := 'C:\Your\Path\SQL-Data-Warehouse-Project\data_sets\source_erp\';
 BEGIN
     v_batch_start := CLOCK_TIMESTAMP();
 
@@ -56,7 +53,7 @@ BEGIN
 
     TRUNCATE TABLE bronze.crm_cust_info;
     EXECUTE FORMAT('COPY bronze.crm_cust_info FROM %L WITH (FORMAT csv, HEADER true, DELIMITER %L)',
-                   v_base_path_crm || 'cust_info.csv', ',');
+                   p_base_path_crm || 'cust_info.csv', ',');
 
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     v_end_time := CLOCK_TIMESTAMP();
@@ -70,7 +67,7 @@ BEGIN
 
     TRUNCATE TABLE bronze.crm_prd_info;
     EXECUTE FORMAT('COPY bronze.crm_prd_info FROM %L WITH (FORMAT csv, HEADER true, DELIMITER %L)',
-                   v_base_path_crm || 'prd_info.csv', ',');
+                   p_base_path_crm || 'prd_info.csv', ',');
 
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     v_end_time := CLOCK_TIMESTAMP();
@@ -84,7 +81,7 @@ BEGIN
 
     TRUNCATE TABLE bronze.crm_sales_details;
     EXECUTE FORMAT('COPY bronze.crm_sales_details FROM %L WITH (FORMAT csv, HEADER true, DELIMITER %L)',
-                   v_base_path_crm || 'sales_details.csv', ',');
+                   p_base_path_crm || 'sales_details.csv', ',');
 
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     v_end_time := CLOCK_TIMESTAMP();
@@ -104,7 +101,7 @@ BEGIN
 
     TRUNCATE TABLE bronze.erp_cust_az12;
     EXECUTE FORMAT('COPY bronze.erp_cust_az12 FROM %L WITH (FORMAT csv, HEADER true, DELIMITER %L)',
-                   v_base_path_erp || 'CUST_AZ12.csv', ',');
+                   p_base_path_erp || 'CUST_AZ12.csv', ',');
 
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     v_end_time := CLOCK_TIMESTAMP();
@@ -118,7 +115,7 @@ BEGIN
 
     TRUNCATE TABLE bronze.erp_loc_a101;
     EXECUTE FORMAT('COPY bronze.erp_loc_a101 FROM %L WITH (FORMAT csv, HEADER true, DELIMITER %L)',
-                   v_base_path_erp || 'LOC_A101.csv', ',');
+                   p_base_path_erp || 'LOC_A101.csv', ',');
 
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     v_end_time := CLOCK_TIMESTAMP();
@@ -132,7 +129,7 @@ BEGIN
 
     TRUNCATE TABLE bronze.erp_px_cat_g1v2;
     EXECUTE FORMAT('COPY bronze.erp_px_cat_g1v2 FROM %L WITH (FORMAT csv, HEADER true, DELIMITER %L)',
-                   v_base_path_erp || 'PX_CAT_G1V2.csv', ',');
+                   p_base_path_erp || 'PX_CAT_G1V2.csv', ',');
 
     GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
     v_end_time := CLOCK_TIMESTAMP();
@@ -160,3 +157,4 @@ EXCEPTION
 END;
 $$;
 
+CALL bronze.load_bronze();
