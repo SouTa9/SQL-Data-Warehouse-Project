@@ -12,7 +12,7 @@
 
 ## Gold Layer - Star Schema
 
-### 🌟 dim_customer
+### 🌟 dim_customers
 
 **Purpose:** Unified customer dimension integrating CRM and ERP data  
 **Grain:** One row per customer  
@@ -50,7 +50,7 @@
 | product_id     | INT         | Natural key from CRM                   |
 | product_number | VARCHAR(50) | SKU/product code                       |
 | product_name   | VARCHAR(50) | Product description                    |
-| category_id    | INT         | Category identifier                    |
+| category_id    | VARCHAR(50) | Category identifier                    |
 | category       | VARCHAR(50) | Top-level category (Bikes, Components) |
 | subcategory    | VARCHAR(50) | Detailed classification                |
 | maintenance    | VARCHAR(50) | Requires maintenance (Yes/No)          |
@@ -98,7 +98,7 @@
 | Table             | Key Transformations                                     |
 |-------------------|---------------------------------------------------------|
 | crm_cust_info     | Deduplication, gender/status standardization, trimming  |
-| crm_prd_info      | Product line standardization, SCD Type 2, cost handling |
+| crm_prd_info      | Product key shortened (from pos 7), product line standardization, SCD Type 2, cost handling |
 | crm_sales_details | Date type conversion (INT→DATE), validation             |
 | erp_cust_az12     | Date conversion, customer ID formatting                 |
 | erp_loc_a101      | Country standardization, trimming                       |
