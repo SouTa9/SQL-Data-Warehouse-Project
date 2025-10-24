@@ -46,7 +46,7 @@ Execution:
 -- Row Count: ~700 customers (varies by source data)
 -- ============================================================================
 
-CREATE VIEW gold.dim_customers AS
+CREATE OR REPLACE VIEW gold.dim_customers AS
 SELECT ROW_NUMBER() OVER (ORDER BY cst_id) AS customer_key,
        ci.cst_id                           AS customer_id,
        ci.cst_key                          AS customer_number,
@@ -86,7 +86,7 @@ FROM silver.crm_cust_info AS ci
 -- Row Count: ~200 active products (varies by source data)
 -- ============================================================================
 
-CREATE VIEW gold.dim_products AS
+CREATE OR REPLACE VIEW gold.dim_products AS
 SELECT ROW_NUMBER() OVER (ORDER BY ci.prd_start_dt, ci.prd_key) AS product_key,
        ci.prd_id                                                AS product_id,
        ci.prd_key                                               AS product_number,
@@ -120,13 +120,13 @@ WHERE prd_end_dt IS NULL;
 --   - price: Unit price (semi-additive)
 --
 -- Dimensions:
---   - customer_key → dim_customer (who bought)
+--   - customer_key → dim_customers (who bought)
 --   - product_key → dim_products (what was bought)
 --   - order_date, shipping_date, due_date (when it happened)
 --
 -- Source Integration:
 --   - Primary: silver.crm_sales_details (transaction data)
---   - Lookup: gold.dim_customer (surrogate keys)
+--   - Lookup: gold.dim_customers (surrogate keys)
 --   - Lookup: gold.dim_products (surrogate keys)
 --
 -- Key Transformations:
@@ -137,7 +137,7 @@ WHERE prd_end_dt IS NULL;
 -- Row Count: ~60,000 transactions (varies by source data)
 -- ============================================================================
 
-CREATE VIEW gold.fact_sales AS
+CREATE OR REPLACE VIEW gold.fact_sales AS
 SELECT sls_ord_num  AS order_number,
        p.product_key,
        c.customer_key,
@@ -148,8 +148,8 @@ SELECT sls_ord_num  AS order_number,
        sls_quantity AS quantity,
        sls_price    AS price
 FROM silver.crm_sales_details AS s
-         LEFT JOIN gold.dim_customer AS c ON c.customer_id = s.sls_cust_id
-         LEFT JOIN gold.dim_products AS p ON p.product_number = s.sls_prd_key;
+         LEFT JOIN gold.dim_customers AS c ON c.customer_id = s.sls_cust_id
+       LEFT JOIN gold.dim_products AS p ON p.product_number = s.sls_prd_key; -- Equality join now that silver.crm_prd_info.prd_key is shortened to match sales
 
 -- ============================================================================
 -- POST-CREATION VALIDATION
@@ -166,7 +166,7 @@ FROM silver.crm_sales_details AS s
 -- Example 1: Total sales by customer
 -- SELECT c.firstname, c.lastname, SUM(f.sales) as total_sales
 -- FROM gold.fact_sales f
--- JOIN gold.dim_customer c ON f.customer_key = c.customer_key
+-- JOIN gold.dim_customers c ON f.customer_key = c.customer_key
 -- GROUP BY c.customer_key, c.firstname, c.lastname
 -- ORDER BY total_sales DESC
 -- LIMIT 10;
