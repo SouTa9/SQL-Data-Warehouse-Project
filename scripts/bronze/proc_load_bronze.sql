@@ -14,10 +14,16 @@ Features:
     - Logging with row counts and duration
     - Error handling
 
-⚠️  IMPORTANT: Update v_base_path_crm and v_base_path_erp variables below
+Parameters:
+    - p_base_path_crm: Absolute base path to CRM CSV folder (must end with a slash)
+    - p_base_path_erp: Absolute base path to ERP CSV folder (must end with a slash)
+
+Notes:
+    - You do NOT need to edit this script for paths; pass them as parameters when calling the procedure.
+    - On Windows, prefer forward slashes (e.g., C:/data/source_crm/).
 
 Usage:
-    CALL bronze.load_bronze();
+    CALL bronze.load_bronze('C:/path/to/data_sets/source_crm/', 'C:/path/to/data_sets/source_erp/');
 
 ================================================================================
 */
@@ -108,7 +114,7 @@ BEGIN
     v_duration := ROUND(EXTRACT(EPOCH FROM (v_end_time - v_start_time))::NUMERIC, 2);
     RAISE NOTICE 'Loaded % rows in % seconds', v_rows_affected, v_duration;
 
-    -- Load ERP Location Data
+    -- Load ERP Location Information
     RAISE NOTICE ' ';
     RAISE NOTICE 'Loading: erp_loc_a101';
     v_start_time := CLOCK_TIMESTAMP();
@@ -122,7 +128,7 @@ BEGIN
     v_duration := ROUND(EXTRACT(EPOCH FROM (v_end_time - v_start_time))::NUMERIC, 2);
     RAISE NOTICE 'Loaded % rows in % seconds', v_rows_affected, v_duration;
 
-    -- Load ERP Product Category Data
+    -- Load ERP Product Category Information
     RAISE NOTICE ' ';
     RAISE NOTICE 'Loading: erp_px_cat_g1v2';
     v_start_time := CLOCK_TIMESTAMP();
@@ -156,5 +162,3 @@ EXCEPTION
         RAISE;
 END;
 $$;
-
-CALL bronze.load_bronze();
