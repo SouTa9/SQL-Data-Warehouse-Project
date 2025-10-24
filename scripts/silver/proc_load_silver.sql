@@ -115,18 +115,18 @@ BEGIN
 
     -- Load transformed data
     INSERT INTO silver.crm_prd_info (prd_id,
-                                     cat_id,
                                      prd_key,
                                      prd_nm,
                                      prd_cost,
+                                     cat_id,
                                      prd_line,
                                      prd_start_dt,
                                      prd_end_dt)
     SELECT prd_id,
-           REPLACE(SUBSTR(prd_key, 1, 5), '-', '_') AS cat_id,
-           SUBSTR(prd_key, 7, LENGTH(prd_key))      AS prd_key,
+           SUBSTRING(prd_key FROM 7)                AS prd_key, -- shorten to match sales keys
            prd_nm,
            COALESCE(prd_cost, 0)                    AS prd_cost,
+           REPLACE(SUBSTR(prd_key, 1, 5), '-', '_') AS cat_id,
            CASE UPPER(TRIM(prd_line))
                WHEN 'M' THEN 'Mountain'
                WHEN 'R' THEN 'Road'
@@ -136,7 +136,7 @@ BEGIN
                END                                  AS prd_line,
            prd_start_dt,
            LEAD(prd_start_dt) OVER (
-               PARTITION BY SUBSTR(prd_key, 7, LENGTH(prd_key))
+               PARTITION BY prd_key
                ORDER BY prd_start_dt
                ) - 1                                AS prd_end_dt
     FROM bronze.crm_prd_info;
@@ -176,15 +176,15 @@ BEGIN
            -- Convert INT (YYYYMMDD) to DATE
            CASE
                WHEN sls_order_dt IS NULL OR LENGTH(sls_order_dt::TEXT) != 8 THEN NULL
-               ELSE CAST(sls_order_dt::TEXT AS DATE)
+               ELSE TO_DATE(sls_order_dt::TEXT, 'YYYYMMDD')
                END AS sls_order_dt,
            CASE
                WHEN sls_ship_dt IS NULL OR LENGTH(sls_ship_dt::TEXT) != 8 THEN NULL
-               ELSE CAST(sls_ship_dt::TEXT AS DATE)
+               ELSE TO_DATE(sls_ship_dt::TEXT, 'YYYYMMDD')
                END AS sls_ship_dt,
            CASE
                WHEN sls_due_dt IS NULL OR LENGTH(sls_due_dt::TEXT) != 8 THEN NULL
-               ELSE CAST(sls_due_dt::TEXT AS DATE)
+               ELSE TO_DATE(sls_due_dt::TEXT, 'YYYYMMDD')
                END AS sls_due_dt,
            -- Validate and recalculate sales if needed
            CASE
@@ -339,13 +339,12 @@ EXCEPTION
 END;
 $$;
 
-CALL silver.load_silver()
 /*
 ================================================================================
 EXAMPLE USAGE AND TESTING:
 
 -- 1. First, review data quality checks
-\i scripts/silver/data_quality_checks.sql
+\i tests/data_quality_checks_silver.sql
 
 -- 2. Execute the transformation procedure
 CALL silver.load_silver();
@@ -364,3 +363,6 @@ SELECT * FROM silver.crm_sales_details WHERE sls_order_dt IS NOT NULL LIMIT 10;
 END OF SCRIPT
 ================================================================================
 */
+
+-- End of file
+
