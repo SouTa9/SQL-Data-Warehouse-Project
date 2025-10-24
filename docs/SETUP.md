@@ -10,8 +10,7 @@ Complete step-by-step instructions to set up and run the SQL Data Warehouse proj
 
 - **PostgreSQL** 12 or higher ([Download](https://www.postgresql.org/download/))
 - **Database Client** (choose one):
-    - pgAdmin (GUI) - Recommended for beginners
-    - DataGrip (Commercial IDE)
+    - pgAdmin (GUI) 
     - DBeaver (Open-source)
     - psql (Command-line)
 
@@ -43,31 +42,51 @@ SQL-Data-Warehouse-Project/
 
 ---
 
-### 2. Update File Paths
+### 2. Paths for CSV files (how it works)
 
-**IMPORTANT:** Edit the file paths in the Bronze loading procedure.
+You do not need to edit any SQL to change file paths.
 
-Open: `scripts/bronze/proc_load_bronze.sql`
+- The Bronze loader procedure `bronze.load_bronze(p_base_path_crm, p_base_path_erp)` accepts two parameters.
+- When running with Airflow, the DAG passes your Windows paths automatically.
+- When running manually, pass your own absolute base paths (end with a slash).
 
-Find lines 62-63 and update to your local paths:
+Example (PowerShell-friendly forward slashes):
 
 ```sql
--- BEFORE (example):
-v_base_path_crm TEXT := 'C:\Users\vlado\Desktop\SQL-project-last\...';
-v_base_path_erp TEXT := 'C:\Users\vlado\Desktop\SQL-project-last\...';
-
--- AFTER (your actual path):
-v_base_path_crm TEXT := 'C:\Your\Path\SQL-Data-Warehouse-Project\data_sets\source_crm\';
-v_base_path_erp TEXT := 'C:\Your\Path\SQL-Data-Warehouse-Project\data_sets\source_erp\';
+CALL bronze.load_bronze('C:/Your/Path/SQL-Data-Warehouse-Project/data_sets/source_crm/',
+                        'C:/Your/Path/SQL-Data-Warehouse-Project/data_sets/source_erp/');
 ```
-
-**Windows Users:** Use double backslashes `\\` or forward slashes `/`
 
 ---
 
 ## Execution
 
-### Option A: Using psql (Command-Line)
+### Option A: Using Airflow (Docker, recommended)
+
+1) From the repository root, start the stack (Docker Desktop required):
+
+    - `docker-compose up -d`
+
+2) Create Airflow connection to your local Postgres (the data warehouse):
+
+    - Open http://localhost:8080 (login: airflow / airflow)
+    - Admin → Connections → +
+      - Conn Id: `postgres_dw`
+      - Conn Type: Postgres
+      - Host: `host.docker.internal`
+      - Port: `5432`
+      - Login: your Postgres user
+      - Password: your password
+      - Database: `data_warehouse`
+
+3) Trigger the DAG `sql_dwh_pipeline`.
+
+    - Tasks: Bronze → Silver → Silver assertions → Create Gold views → Gold assertions
+    - Any failed assertion stops the DAG and highlights the failure in task logs.
+
+4) Explore the data in your local Postgres (query `gold.*` views).
+
+### Option B: Using psql (Command-Line)
 
 ```bash
 # 1. Connect to PostgreSQL
@@ -81,7 +100,8 @@ psql -U postgres
 
 # 4. Create and load Bronze layer
 \i C:/Your/Path/SQL-Data-Warehouse-Project/scripts/bronze/ddl_bronze.sql
-CALL bronze.load_bronze();
+CALL bronze.load_bronze('C:/Your/Path/SQL-Data-Warehouse-Project/data_sets/source_crm/',
+                        'C:/Your/Path/SQL-Data-Warehouse-Project/data_sets/source_erp/');
 
 # 5. Create and load Silver layer
 \i C:/Your/Path/SQL-Data-Warehouse-Project/scripts/silver/ddl_silver.sql
@@ -90,7 +110,8 @@ CALL silver.load_silver();
 # 6. Create Gold layer
 \i C:/Your/Path/SQL-Data-Warehouse-Project/scripts/gold/ddl_gold.sql
 
-# 7. Validate data quality
+# 7. Validate data quality (manual SQL tests)
+\i C:/Your/Path/SQL-Data-Warehouse-Project/tests/data_quality_checks_silver.sql
 \i C:/Your/Path/SQL-Data-Warehouse-Project/tests/data_quality_checks_gold.sql
 ```
 
@@ -169,7 +190,7 @@ SELECT 'crm_sales_details', COUNT(*) FROM silver.crm_sales_details;
 
 ```sql
 -- Verify dimensions
-SELECT COUNT(*) as customer_count FROM gold.dim_customer;
+SELECT COUNT(*) as customer_count FROM gold.dim_customers;
 SELECT COUNT(*) as product_count FROM gold.dim_products;
 SELECT COUNT(*) as sales_count FROM gold.fact_sales;
 ```
@@ -184,7 +205,7 @@ SELECT c.firstname, c.lastname,
        SUM(f.sales) as total_revenue,
        COUNT(*) as order_count
 FROM gold.fact_sales f
-JOIN gold.dim_customer c ON f.customer_key = c.customer_key
+JOIN gold.dim_customers c ON f.customer_key = c.customer_key
 GROUP BY c.customer_key, c.firstname, c.lastname
 ORDER BY total_revenue DESC
 LIMIT 5;
@@ -264,7 +285,6 @@ After successful setup:
 
 2. **Understand transformations:**
     - Read SQL comments in `proc_load_silver.sql`
-    - Review [ARCHITECTURE.md](ARCHITECTURE.md)
 
 3. **Connect BI tools:**
     - Power BI, Tableau, Looker, etc.
@@ -292,7 +312,6 @@ DROP DATABASE IF EXISTS data_warehouse;
 
 ---
 
-**Need help?** Review error messages in the console output. Most issues are related to file paths or permissions.
 
 # Architecture Documentation
 
@@ -530,15 +549,6 @@ Result: Fact table with dimension keys (~60K transactions)
 - Better performance at scale
 - Requires more complex logic
 
-### Why Surrogate Keys?
-
-**ROW_NUMBER() vs. SERIAL:**
-
-- ROW_NUMBER: Deterministic, reproducible
-- SERIAL: Requires table persistence
-- Choice: ROW_NUMBER for view-based Gold layer
-
----
 
 ## Data Quality Framework
 
@@ -580,27 +590,12 @@ Result: Fact table with dimension keys (~60K transactions)
 - Dataset: Millions of transactions
 - Loading: Incremental with CDC
 - Gold: Materialized views with refresh
-- Execution: Scheduled jobs (cron/Airflow)
+- Execution: Scheduled jobs (Airflow)
 - Monitoring: Data quality dashboard
 - Testing: Automated CI/CD pipeline
 
 ---
 
-## Security Considerations
-
-**Current Implementation:**
-
-- Schema-based separation
-- Database-level access control
-
-**Production Recommendations:**
-
-- Row-level security for sensitive data
-- Audit logging for data access
-- Encryption at rest and in transit
-- Role-based access control (RBAC)
-
----
 
 ## Naming Conventions
 
@@ -619,8 +614,5 @@ Result: Fact table with dimension keys (~60K transactions)
 
 **Procedures:** `load_<layer>()` (e.g., `bronze.load_bronze()`)
 
----
 
-*This architecture balances simplicity with best practices, making it suitable for portfolio demonstration while
-maintaining production-ready principles.*
 
